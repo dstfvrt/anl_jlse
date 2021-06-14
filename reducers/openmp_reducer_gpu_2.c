@@ -8,16 +8,18 @@
 #include <time.h>
 #include <omp.h>
 
-#define N 2
+#define N 1000000
 
-/* Summary: reduction for 1mil unsigned values by
- * OpenMP GPU offloading.
- * Checksum: 999
+/*  Summary: time reduction for 1mil unsigned values
+ *  by OpenMP GPU offloading. Note there is no reduction
+ *  in the omp directive. This examples does not
+ *  return a valid checksum.  Runtime varies between 
+ *  173 ms and 213 ms.
  */
 
 void dense(unsigned* h) {
 
-    srand(0);
+    srand((unsigned)time(NULL));
     for (unsigned i = 0; i < N; i++) {
         h[i] = (unsigned)rand() % 1000;
     }
@@ -46,8 +48,7 @@ int main(int argc, char **argv) {
     gettimeofday(&etstart, &tzdummy);
     etstart2 = times(&cputstart);
     
-    #pragma omp target data map(to: h[0:N]) map(tofrom: result)
-    #pragma omp target teams distribute parallel for reduction(max:result) map(result)
+    #pragma omp target teams distribute parallel for map(to: h[0:N]) map(tofrom: result)
     for (unsigned i = 0; i < N; i++) {
         result += h[i];
     } 

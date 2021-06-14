@@ -1,33 +1,42 @@
 #include <stdio.h>
 #include <stdlib.h>
+#include <unistd.h>
 #include <math.h>
+#include <sys/types.h>
+#include <sys/times.h>
+#include <sys/time.h>
 #include <time.h>
 
 #define N 1000000
 
+/* Summary: reduction for 1mil unsigned values
+ * by custom CUDA implementation.
+ * Checksum: 383
+ */
 __global__ void reduce_GPU(unsigned* d) {
+    /* Shared memory */
+    extern __shared__ unsigned sdata[];
 
-    const int tid = threadIdx.x;
-    int step_size = 1;
-    int thread_count = blockDim.x;
+    /* load into shared memory */
+    unsigned int tid = threadIdx.x;
+    unsigned int i = blockIdx.x*blockDim.x + threadIdx.x;
+    sdata[tid] = d[i];
+    __syncthreads();
 
-    while (thread_count > 0) {
-
-        if (tid < thread_count) {
-         
-	    int l_ind = tid * step_size * 2;
-	    int r_ind = l_ind + step_size;
-	    d[l_ind] += d[r_ind];
-        }
-
-	step_size <<= 1;
-	thread_count >>=1;
+    /* reduction */
+    for (unsigned int s=1; s < blockDim.x; s *= 2) {
+        if (tid % (2*s) == 0) {
+            sdata[tid] += sdata[tid + s];
+	}
+	__syncthreads();
     }
+
+    if (tid==0) d[0] = sdata[0];
 }
 
 void dense(unsigned* h) {
 
-    srand((unsigned)time(NULL));
+    srand(0);
     for (unsigned i = 0; i < N; i++) {
         h[i] = (unsigned)rand() % 1000;
     }
@@ -37,8 +46,9 @@ void dense(unsigned* h) {
 int main(int argc, char **argv) {
 
     unsigned* h;
-    unsigned result = 0;
-    int nBytes;
+    unsigned* d;
+    unsigned result;
+    unsigned nBytes;
     nBytes = N*sizeof(unsigned);
 
     /* Timing variables */
@@ -51,8 +61,8 @@ int main(int argc, char **argv) {
     h = (unsigned *)malloc(nBytes);
     dense(h);
 
-    cudaMalloc(&d, sizeof(unsigned));
-    cudaMemcpy(d, h, sizeof(unsigned), cudaMemcpyHostToDevice);
+    cudaMalloc(&d, nBytes);
+    cudaMemcpy(d, h, nBytes, cudaMemcpyHostToDevice);
 
     /* Start Clock */
     printf("\nStarting clock.\n");
@@ -68,20 +78,11 @@ int main(int argc, char **argv) {
     usecstart = (unsigned long long)etstart.tv_sec * 1000000 + etstart.tv_usec;
     usecstop = (unsigned long long)etstop.tv_sec * 1000000 + etstop.tv_usec;
 
-    int result;
-    cudaMemcpy(&result, d, nBytes, cudaMemcpyDeviceToHost);
+    cudaMemcpy(&result, d, sizeof(unsigned), cudaMemcpyDeviceToHost);
     printf("Checksum: %u\n", result);
 
-    /* Display timing results */
     printf("\nElapsed time = %g ms.\n",
            (float)(usecstop - usecstart)/(float)1000);
-
-    printf("(CPU times are accurate to the nearest %g ms)\n",
-           1.0/(float)CLOCKS_PER_SEC * 1000.0);
-    printf("My total CPU time for parent = %g ms.\n",
-           (float)( (cputstop.tms_utime + cputstop.tms_stime) -
-                    (cputstart.tms_utime + cputstart.tms_stime) ) /
-           (float)CLOCKS_PER_SEC * 1000);
 
     exit(0);
 }
