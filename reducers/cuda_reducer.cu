@@ -1,10 +1,5 @@
 #include <stdio.h>
 #include <stdlib.h>
-#include <unistd.h>
-#include <math.h>
-#include <sys/types.h>
-#include <sys/times.h>
-#include <sys/time.h>
 #include <time.h>
 
 #define N 1000000
@@ -18,13 +13,13 @@ __global__ void reduce_GPU(unsigned* d) {
     extern __shared__ unsigned sdata[];
 
     /* load into shared memory */
-    unsigned int tid = threadIdx.x;
-    unsigned int i = blockIdx.x*blockDim.x + threadIdx.x;
+    unsigned tid = threadIdx.x;
+    unsigned i = blockIdx.x*blockDim.x + threadIdx.x;
     sdata[tid] = d[i];
     __syncthreads();
 
     /* reduction */
-    for (unsigned int s=1; s < blockDim.x; s *= 2) {
+    for (unsigned s=1; s < blockDim.x; s *= 2) {
         if (tid % (2*s) == 0) {
             sdata[tid] += sdata[tid + s];
 	}
@@ -51,38 +46,13 @@ int main(int argc, char **argv) {
     unsigned nBytes;
     nBytes = N*sizeof(unsigned);
 
-    /* Timing variables */
-    struct timeval etstart, etstop;
-    struct timezone tzdummy;
-    clock_t etstart2, etstop2;
-    unsigned long long usecstart, usecstop;
-    struct tms cputstart, cputstop;
-
     h = (unsigned *)malloc(nBytes);
     dense(h);
 
-    cudaMalloc(&d, nBytes);
-    cudaMemcpy(d, h, nBytes, cudaMemcpyHostToDevice);
+    reduce_GPU<<<(N+1023) / 1024, 1024, nBytes>>>(d);
 
-    /* Start Clock */
-    printf("\nStarting clock.\n");
-    gettimeofday(&etstart, &tzdummy);
-    etstart2 = times(&cputstart);
-
-    reduce_GPU<<<1, N / 2>>>(d);
-
-    /* Stop Clock */
-    gettimeofday(&etstop, &tzdummy);
-    etstop2 = times(&cputstop);
-    printf("Stopped clock.\n");
-    usecstart = (unsigned long long)etstart.tv_sec * 1000000 + etstart.tv_usec;
-    usecstop = (unsigned long long)etstop.tv_sec * 1000000 + etstop.tv_usec;
-
-    cudaMemcpy(&result, d, sizeof(unsigned), cudaMemcpyDeviceToHost);
+    cudaMemcpy(&result, d, nBytes, cudaMemcpyDeviceToHost);
     printf("Checksum: %u\n", result);
-
-    printf("\nElapsed time = %g ms.\n",
-           (float)(usecstop - usecstart)/(float)1000);
 
     exit(0);
 }
