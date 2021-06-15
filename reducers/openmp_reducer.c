@@ -17,7 +17,7 @@ int main(int argc, char **argv) {
     
     dense_input();
 
-    #pragma omp for
+    #pragma omp parallel for
     for (unsigned i = 0; i < N; i++) {
         b += a[i];
     }

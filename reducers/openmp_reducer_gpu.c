@@ -45,7 +45,6 @@ int main(int argc, char **argv) {
     #pragma omp target data map(to: h[0:N])
     {
         /* Start Clock */
-        printf("\nStarting clock.\n");
         gettimeofday(&etstart, &tzdummy);
         etstart2 = times(&cputstart);
     
@@ -58,7 +57,6 @@ int main(int argc, char **argv) {
         /* Stop Clock */
         gettimeofday(&etstop, &tzdummy);
         etstop2 = times(&cputstop);
-        printf("Stopped clock.\n");
         usecstart = (unsigned long long)etstart.tv_sec * 1000000 + etstart.tv_usec;
         usecstop = (unsigned long long)etstop.tv_sec * 1000000 + etstop.tv_usec;
     }
