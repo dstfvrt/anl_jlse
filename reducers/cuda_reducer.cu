@@ -13,7 +13,7 @@
 
 /* Summary: reduction for 1mil unsigned values
  * by custom CUDA implementation.
- * Checksum: 490204
+ * Checksum: 499495
  */
 
 __global__ void reduce_GPU(unsigned* d) {

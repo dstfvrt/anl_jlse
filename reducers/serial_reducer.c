@@ -5,7 +5,7 @@
 #define N 1000
 
 /*  Summary: serial reduction for 1mil unsigned values.
- *  Checksum: 490204.
+ *  Checksum: 499495.
  */
 
 void dense(unsigned* h) {

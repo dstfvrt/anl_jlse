@@ -1,0 +1,24 @@
+Jobid: 352130
+qsub -I -t 3:00 -n 1 -q gpu_a100
+Tue Jun 15 07:15:11 2021 +0000 (UTC) submitted with cwd set to: /gpfs/jlse-fs0/users/dstfvrt/anl_jlse
+jobid 352130 submitted from terminal /dev/pts/9
+Tue Jun 15 07:15:21 2021 +0000 (UTC) 
+Tue Jun 15 07:15:21 2021 +0000 (UTC) Command: '/usr/bin/ssh' 'gpu07' '/usr/libexec/cobalt/cobalt-launcher.py' '--nf' '/var/tmp/cobalt.352130' '--jobid' '352130' '--cwd' '/gpfs/jlse-fs0/users/dstfvrt/anl_jlse' '--env' 'COBALT_JOBID=352130' '/bin/sleep' '10800'
+Tue Jun 15 07:15:21 2021 +0000 (UTC) 
+Tue Jun 15 07:15:21 2021 +0000 (UTC) Environment:
+Tue Jun 15 07:15:21 2021 +0000 (UTC) SHELL=/bin/bash
+Tue Jun 15 07:15:21 2021 +0000 (UTC) COBALT_NODEFILE=/tmp/tmp3J7B8e
+Tue Jun 15 07:15:21 2021 +0000 (UTC) COBALT_PARTNAME=gpu07
+Tue Jun 15 07:15:21 2021 +0000 (UTC) COBALT_JOBID=352130
+Tue Jun 15 07:15:21 2021 +0000 (UTC) COBALT_STARTTIME=1623741313
+Tue Jun 15 07:15:21 2021 +0000 (UTC) LOGNAME=dstfvrt
+Tue Jun 15 07:15:21 2021 +0000 (UTC) USER=dstfvrt
+Tue Jun 15 07:15:21 2021 +0000 (UTC) COBALT_ENDTIME=1623752113
+Tue Jun 15 07:15:21 2021 +0000 (UTC) COBALT_PARTSIZE=1
+Tue Jun 15 07:15:21 2021 +0000 (UTC) HOME=/home/dstfvrt
+Tue Jun 15 07:15:21 2021 +0000 (UTC) COBALT_JOBSIZE=1
+Tue Jun 15 07:15:21 2021 +0000 (UTC) 
+Tue Jun 15 07:15:21 2021 +0000 (UTC) Info: stdin received from /dev/null
+Tue Jun 15 07:15:21 2021 +0000 (UTC) Info: stdout sent to /gpfs/jlse-fs0/users/dstfvrt/anl_jlse/352130.output
+Tue Jun 15 07:15:21 2021 +0000 (UTC) Info: stderr sent to /gpfs/jlse-fs0/users/dstfvrt/anl_jlse/352130.error
+Tue Jun 15 07:15:21 2021 +0000 (UTC) 

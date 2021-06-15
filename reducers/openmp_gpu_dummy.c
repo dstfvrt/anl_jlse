@@ -47,10 +47,8 @@ int main(int argc, char **argv) {
     etstart2 = times(&cputstart);
     
     #pragma omp target data map(to: h[0:N]) map(tofrom: result)
-    #pragma omp target teams distribute parallel for reduction(max:result) map(result)
-    for (unsigned i = 0; i < N; i++) {
-        result += h[i];
-	printf("%u\n", result);
+    {
+	    ;
     } 
 
     /* Stop Clock */
