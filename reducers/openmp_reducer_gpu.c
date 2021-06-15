@@ -10,9 +10,11 @@
 
 #define N 1000
 
-/* Summary: reduction for 1mil unsigned values by
- * OpenMP GPU offloading.
- * Checksum: 999
+/* Summary: reduction for 1k unsigned values by
+ * OpenMP GPU offloading. This example does not 
+ * return a valid checksum. Runtimes were collected
+ * on a gpu_a100 JLSE machine. Approx. runtimes:
+ * Total: 76-82ms. Mem alloc: 55-60ms.
  */
 
 void dense(unsigned* h) {

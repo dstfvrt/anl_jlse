@@ -11,9 +11,11 @@
 
 #define N 1000
 
-/* Summary: reduction for 1mil unsigned values
- * by custom CUDA implementation.
- * Checksum: 499495
+/* Summary: reduction for 1k unsigned values
+ * by custom CUDA implementation. Checksum: 499495.
+ * Runtime values from gpu_a100 JLSE machine. 
+ * Approx. runtimes: Total: 76-82ms. Mem alloc: 76-82ms.
+ * Reduction: 0.02ms. 
  */
 
 __global__ void reduce_GPU(unsigned* d) {
