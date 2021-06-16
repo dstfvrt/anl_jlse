@@ -11,6 +11,11 @@ public:
     *(this->val) += rhs;
   }
 
+  void operator+=(AtomicScalar<contentType> rhs) {
+#pragma omp atomic update
+    *(this->val) += *(rhs.val);
+  }
+
 private:
   contentType *val;
 };
@@ -51,4 +56,8 @@ private:
 #pragma omp declare reduction(+ : foo::AtomicReduction<float> : \
     foo::AtomicReduction<float>::ompReduce(&omp_out, &omp_in))                         \
     initializer (foo::AtomicReduction<float>::ompInit(&omp_priv, &omp_orig))
+
+#pragma omp declare reduction(+ : foo::AtomicReduction<unsigned> : \
+    foo::AtomicReduction<unsigned>::ompReduce(&omp_out, &omp_in))                         \
+    initializer (foo::AtomicReduction<unsigned>::ompInit(&omp_priv, &omp_orig))
 #endif
