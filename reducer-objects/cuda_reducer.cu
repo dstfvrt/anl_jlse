@@ -32,11 +32,17 @@ __global__ void reduce_GPU(bar::AtomicReduction<unsigned> *d) {
     for (unsigned s=1; s < blockDim.x; s *= 2) {
         if (tid % (2*s) == 0) {
             sdata[tid] += sdata[tid + s];
+	    printf("reduction val is ");
+	    sdata[tid].dispScalar();
 	}
 	__syncthreads();
     }
 
-    if (tid==0) d[0][0] = sdata[0];
+    if (tid==0) {
+        d[0][0] = sdata[0];
+        printf("Checksum: ");
+        d[0][0].dispScalar();
+    }
 }
 
 void dense(unsigned* h) {
@@ -47,15 +53,7 @@ void dense(unsigned* h) {
     }
 }
 
-/* CPU timing functions */
 int main(int argc, char **argv) {
-
-    /* Timing variables */
-    struct timeval etstart, etstop;
-    struct timezone tzdummy;
-    clock_t etstart2, etstop2;
-    unsigned long long usecstart, usecstop;
-    struct tms cputstart, cputstop;
 
     /* initialize reducer on device */
     unsigned* h;
@@ -67,25 +65,8 @@ int main(int argc, char **argv) {
     cudaMallocManaged(&d, sizeof(arr_h));
     *d = arr_h;
 
-    /* Start Clock */
-    printf("\nStarting clock.\n");
-    gettimeofday(&etstart, &tzdummy);
-    etstart2 = times(&cputstart);
-
+    /* to kernel */
 reduce_GPU<<<(N+1023) / 1024, 1024>>>(d);
-
-    /* Stop Clock */
-    gettimeofday(&etstop, &tzdummy);
-    etstop2 = times(&cputstop);
-    printf("Stopped clock.\n");
-    usecstart = (unsigned long long)etstart.tv_sec * 1000000 + etstart.tv_usec;
-    usecstop = (unsigned long long)etstop.tv_sec * 1000000 + etstop.tv_usec;
-    printf("\nElapsed time = %g ms.\n",
-           (float)(usecstop - usecstart)/(float)1000);
-
-
-    printf("Checksum: ");
-    d[0][0].dispScalar();
 
     exit(0);
 }
