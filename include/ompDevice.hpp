@@ -8,11 +8,10 @@ public:
 
   void dispScalar() { printf("%u\n", *this->val); }
 
-  void operator+=(AtomicScalar<contentType> rhs) {
-    #pragma omp target use_ptr(this->val,rhs->val) {
-      atomicAdd(this->val, rhs.val);
+  void operator+=(contentType rhs) {
+    #pragma omp atomic update
+      *(this->val) += rhs;
     }
-  }
 
 private:
   contentType *val;
