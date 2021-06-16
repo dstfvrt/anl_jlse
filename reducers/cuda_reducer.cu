@@ -6,7 +6,6 @@
 #include <sys/times.h>
 #include <sys/time.h>
 #include <time.h>
-#include <omp.h>
 
 
 #define N 1000
@@ -14,7 +13,8 @@
 /* Summary: reduction for 1mil unsigned values
  * by custom CUDA implementation. Checksum: 499495.
  * Runtime values from gpu_a100 JLSE machine. 
- * Kernel runtime: 0.017ms. 
+ * Approx. runtimes: Total: 76-82ms. Mem alloc: 76-82ms.
+ * Reduction: 0.02ms. 
  */
 
 __global__ void reduce_GPU(unsigned* d) {
@@ -90,43 +90,3 @@ int main(int argc, char **argv) {
 
     exit(0);
 }
-
-
-/* CUDA timing functions
-int main(int argc, char **argv) {
-    unsigned* h; 
-    unsigned* d;
-    int nBytes;
-    nBytes = N*sizeof(unsigned);
-
-    h = (unsigned *)malloc(nBytes);
-    dense(h);
-
-    cudaMalloc(&d, sizeof(unsigned));
-    cudaMemcpy(d, h, sizeof(unsigned), cudaMemcpyHostToDevice);
-    cudaEvent_t start, stop;
-    cudaEventCreate(&start);
-    cudaEventCreate(&stop);
-    printf("\n------------------------------\n");
-    printf("\nStarting clock.\n");
-
-    cudaEventRecord(start);
-    reduce_GPU<<<1, N / 2>>>(d);
-    cudaEventRecord(stop);
-    printf("\nStopping clock.\n");
-
-    cudaEventSynchronize(stop);
-
-    float elapsed;
-    cudaEventElapsedTime(&elapsed, start, stop);
-    cudaEventDestroy(start);
-    cudaEventDestroy(stop);
-
-    int result;
-    cudaMemcpy(&result, d, nBytes, cudaMemcpyDeviceToHost);
-    printf("\nElapsed time: %f ms", elapsed);
-    printf("\nsum: %d\n", result);
-
-    exit(0);
-}
-*/

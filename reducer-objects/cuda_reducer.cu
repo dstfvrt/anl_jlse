@@ -17,31 +17,18 @@
  * Reduction: 0.02ms. 
  */
 
-__global__ void reduce_GPU(bar::AtomicReduction<unsigned> *d) {
+__global__ void reduce_GPU(void *d) {
 
-    /* shared memory */
-    extern __shared__ bar::AtomicScalar<unsigned> sdata[];
+    bar::AtomicReduction<unsigned>arr_d(d);
     unsigned tid = threadIdx.x;
     unsigned i = blockIdx.x*blockDim.x + threadIdx.x;
-
-    /* load into shared memory */
-    sdata[tid] = d[0][i];
-
 
     /* reduction */
     for (unsigned s=1; s < blockDim.x; s *= 2) {
         if (tid % (2*s) == 0) {
-            sdata[tid] += sdata[tid + s];
-	    printf("reduction val is ");
-	    sdata[tid].dispScalar();
+            arr_d[tid] += arr_d[tid + s];
 	}
 	__syncthreads();
-    }
-
-    if (tid==0) {
-        d[0][0] = sdata[0];
-        printf("Checksum: ");
-        d[0][0].dispScalar();
     }
 }
 
@@ -56,17 +43,14 @@ void dense(unsigned* h) {
 int main(int argc, char **argv) {
 
     /* initialize reducer on device */
-    unsigned* h;
-    h = (unsigned *)malloc(N*sizeof(unsigned));
+    void* h;
+    cudaMallocManaged(&h, N*sizeof(unsigned);
+
     dense(h);
 
-    bar::AtomicReduction<unsigned>arr_h(h);
-    bar::AtomicReduction<unsigned> *d;
-    cudaMallocManaged(&d, sizeof(arr_h));
-    *d = arr_h;
-
     /* to kernel */
-reduce_GPU<<<(N+1023) / 1024, 1024>>>(d);
+reduce_GPU<<<(N+1023) / 1024, 1024>>>(h);
 
+    printf("checksum %u", h[0]);
     exit(0);
 }

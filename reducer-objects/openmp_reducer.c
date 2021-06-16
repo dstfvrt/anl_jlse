@@ -20,15 +20,15 @@ void dense_input(unsigned* a) {
 
 int main(int argc, char **argv) {
     
-    unsigned* a;
-    a = (unsigned *)malloc(N*sizeof(unsigned));
-    dense_input(a);
+    unsigned a;
+    a = 0; 
+    //dense_input(a);
 
-    foo::AtomicReduction<unsigned> arr_p(a);
+    foo::AtomicReduction<unsigned> arr_p(&a);
     #pragma omp parallel for reduction(+:arr_p)
     for (int i = 1; i < N; i++) {
-        arr_p[0] += arr_p[i];
+        arr_p[0] += 1;
     }
 
-    printf("Checksum: %u\n", a[0]);
+    printf("Checksum: %u\n", a);
 }
