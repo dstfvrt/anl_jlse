@@ -22,7 +22,7 @@ public:
                       DenseReduction<contentType> *__restrict__ orig) {
     init->size = orig->size;
     init->content = reinterpret_cast<contentType *>(
-        aligned_alloc(alignment, orig->size * sizeof(contentType)));
+        malloc(orig->size * sizeof(contentType)));
     for(int i=0; i<orig->size; i++) init->content[i] = 0;
     init->allocated = true;
   }
@@ -63,8 +63,6 @@ private:
     spray::DenseReduction<unsigned>::ompReduce(&omp_out, &omp_in))                         \
     initializer (spray::DenseReduction<unsigned>::ompInit(&omp_priv, &omp_orig))
 
-# define N 1000000
-
 int main(int argc, char **argv) {
 
   /* Timing variables */
@@ -74,28 +72,16 @@ int main(int argc, char **argv) {
   unsigned long long usecstart, usecstop;
   struct tms cputstart, cputstop;
 
-  unsigned a[N];
-
-  #pragma omp target data map(to: a[0:N])
+  #pragma omp target
   {
+    int a[] = {0, 1, 2, 3, 4, 5, 6, 7, 8, 9};
     spray::DenseReduction<unsigned> arr_p(N, a);
-
-    /* Start Clock */
-    gettimeofday(&etstart, &tzdummy);
-    etstart2 = times(&cputstart);
-
     #pragma omp parallel for reduction(+:arr_p)
     for (int i = 1; i < N-1; i++) {
         arr_p[i-1] += 1;
         arr_p[i]   += 2;
         arr_p[i+1] += 4;
     }
-
-    /* Stop Clock */
-    gettimeofday(&etstop, &tzdummy);
-    etstop2 = times(&cputstop);
-    usecstart = (unsigned long long)etstart.tv_sec * 1000000 + etstart.tv_usec;
-    usecstop = (unsigned long long)etstop.tv_sec * 1000000 + etstop.tv_usec;
   }
 
   printf("\nElapsed time = %g ms.\n",
