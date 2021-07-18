@@ -74,7 +74,8 @@ int main(int argc, char **argv) {
     gettimeofday(&etstart, &tzdummy);
     etstart2 = times(&cputstart);
 
-    reduce_GPU<<<(N+1023) / 1024, 1024, nBytes>>>(d);
+    reduce_GPU<<<(N+1023) / 1024, N, nBytes>>>(d);
+    cudaDeviceSynchronize();
 
     /* Stop Clock */
     gettimeofday(&etstop, &tzdummy);

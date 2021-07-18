@@ -6,13 +6,12 @@
 #include <sys/times.h>
 #include <sys/time.h>
 #include <time.h>
-#include <cudaReduce.hpp>
 
-#define N 1000
+#define N 1000000
 
 __global__ void reduce_GPU(unsigned *d) {
-    bar::AtomicReduction<unsigned>arr_d(d);
-    arr_d[0] += 1;
+    d[0] += 1;
+    printf("tid: %u", threadIdx.x);
 }
 
 int main(int argc, char **argv) {
@@ -21,7 +20,7 @@ int main(int argc, char **argv) {
     cudaMallocManaged(&h, N*sizeof(unsigned));
 
     /* to kernel */
-    reduce_GPU<<<1, N>>>(h);
+    reduce_GPU<<<1, 1, 1000>>>(h);
     cudaDeviceSynchronize();
     printf("Checksum: %u\n", h[0]);
     exit(0);

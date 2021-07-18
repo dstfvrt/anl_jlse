@@ -1,92 +1,95 @@
+#include "cuda_runtime.h"
+#include "device_launch_parameters.h"
+#include <cuda_profiler_api.h>
+#include <stdio.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <unistd.h>
-#include <math.h>
-#include <sys/types.h>
-#include <sys/times.h>
-#include <sys/time.h>
-#include <time.h>
+#include <cuda_runtime.h>
 
+#define REDUX_REDUCE true
 
-#define N 1000
+__inline__ __device__
+unsigned warpReduceRedux(unsigned val) {
+    unsigned remote_element;
 
-/* Summary: reduction for 1mil unsigned values
- * by custom CUDA implementation. Checksum: 499495.
- * Runtime values from gpu_a100 JLSE machine. 
- * Approx. runtimes: Total: 76-82ms. Mem alloc: 76-82ms.
- * Reduction: 0.02ms. 
- */
+    asm volatile ("redux.sync.u32.add %0, %1, 0xff;" :
+                 "+r"(remote_element) : "r"(val));
 
-__global__ void reduce_GPU(unsigned* d) {
-    /* Shared memory */
-    extern __shared__ unsigned sdata[];
+    return remote_element;
+}
 
-    /* load into shared memory */
-    unsigned int tid = threadIdx.x;
-    unsigned int i = blockIdx.x*blockDim.x + threadIdx.x;
-    sdata[tid] = d[i];
+__inline__ __device__
+unsigned warpReduceShfl(unsigned val) {
+    for (int offset = 16; offset > 0; offset /= 2)
+        val += __shfl_down_sync(0xff, val, offset);
+    return val;
+}
+
+__inline__ __device__
+unsigned blockReduce(unsigned val) {
+    static __shared__ int shared[32];
+    int lane = threadIdx.x%32;
+    int wid = threadIdx.x / 32;
+    val = REDUX_REDUCE ? warpReduceRedux(val) : warpReduceShfl(val);
+
+    if (lane == 0)
+        shared[wid] = val;
     __syncthreads();
 
-    /* reduction */
-    for (unsigned s=1; s < blockDim.x; s *= 2) {
-        if (tid % (2*s) == 0) {
-            sdata[tid] += sdata[tid + s];
-	}
-	__syncthreads();
-    }
+    val = (threadIdx.x<blockDim.x / 32) ? shared[lane] : int(0);
+    if (wid == 0)
+        val = REDUX_REDUCE ? warpReduceRedux(val) : warpReduceShfl(val);
 
-    if (tid==0) d[0] = sdata[0];
+    return val;
 }
 
-void dense(unsigned* h) {
-
-    srand(0);
-    for (unsigned i = 0; i < N; i++) {
-        h[i] = (unsigned)rand() % 1000;
-    }
+__global__ void reduceKernel(unsigned *in, unsigned* out, int N) {
+    unsigned sum = in[threadIdx.x];
+    sum = warpReduceRedux(sum);
+    if (threadIdx.x == 0)
+        out[blockIdx.x] = sum;
 }
 
-/* CPU timing functions */
-int main(int argc, char **argv) {
+void deviceReduce(unsigned *in, unsigned* out, int N) {
+    const int maxThreadsPerBlock = 1024;
+    int threads = maxThreadsPerBlock;
+    int blocks = N / maxThreadsPerBlock;
+    // Begin device execution
+    reduceKernel<<<blocks, threads>>>(in, out, N);
+    cudaError_t err = cudaGetLastError();
+    if (err != cudaSuccess)
+        printf("Error: %s\n", cudaGetErrorString(err));
+}
 
-    unsigned* h;
-    unsigned* d;
-    unsigned* result;
-    unsigned nBytes;
-    nBytes = N*sizeof(unsigned);
 
-    h = (unsigned *)malloc(nBytes);
-    result = (unsigned *)malloc(nBytes);
-    dense(h);
+int main()
+{
+    const int ARRAY_SIZE = 1024;
+    const int ARRAY_BYTES = ARRAY_SIZE * sizeof(unsigned);
 
-    /* Timing variables */
-    struct timeval etstart, etstop;
-    struct timezone tzdummy;
-    clock_t etstart2, etstop2;
-    unsigned long long usecstart, usecstop;
-    struct tms cputstart, cputstop;
+    // generate the input array on the host
+    unsigned h_in[ARRAY_SIZE];
+    unsigned sum = 0.0f;
+    for (int i = 0; i < ARRAY_SIZE; i++) {
+        h_in[i] = i;
+        sum += h_in[i];
+    }
 
-    cudaMalloc(&d, nBytes);
-    cudaMemcpy(d, h, nBytes, cudaMemcpyHostToDevice);
+    // declare GPU memory pointers
+    unsigned * d_in, *d_out;
 
-    /* Start Clock */
-    printf("\nStarting clock.\n");
-    gettimeofday(&etstart, &tzdummy);
-    etstart2 = times(&cputstart);
+    // allocate GPU memory
+    cudaMalloc((void **)&d_in, ARRAY_BYTES);
+    cudaMalloc((void **)&d_out, sizeof(unsigned));
 
-    reduce_GPU<<<(N+1023) / 1024, 1024, nBytes>>>(d);
+    // transfer the input array to the GPU
+    cudaMemcpy(d_in, h_in, ARRAY_BYTES, cudaMemcpyHostToDevice);
 
-    /* Stop Clock */
-    gettimeofday(&etstop, &tzdummy);
-    etstop2 = times(&cputstop);
-    printf("Stopped clock.\n");
-    usecstart = (unsigned long long)etstart.tv_sec * 1000000 + etstart.tv_usec;
-    usecstop = (unsigned long long)etstop.tv_sec * 1000000 + etstop.tv_usec;
-    printf("\nElapsed time = %g ms.\n",
-           (float)(usecstop - usecstart)/(float)1000);
+    // offload to device
+    deviceReduce(d_in, d_out, ARRAY_SIZE);
 
-    cudaMemcpy(result, d, nBytes, cudaMemcpyDeviceToHost);
-    printf("Checksum: %u\n", result[0]);
-
-    exit(0);
+    // copy back the sum from GPU
+    unsigned h_out;
+    cudaMemcpy(&h_out, d_out, sizeof(unsigned), cudaMemcpyDeviceToHost);
+    printf("%u\n", h_out);
 }
