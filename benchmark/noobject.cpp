@@ -1,3 +1,5 @@
+//Reduction on array verification and kernel benchmark
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
