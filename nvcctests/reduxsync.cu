@@ -8,6 +8,8 @@
 
 #define REDUX_REDUCE true
 
+// Reduction by warp using redux.sync  
+
 __inline__ __device__
 unsigned warpReduceRedux(unsigned val) {
     unsigned remote_element;

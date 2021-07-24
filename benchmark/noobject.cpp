@@ -20,7 +20,7 @@ int main(int argc, char **argv) {
 
   #pragma omp target teams num_teams(1) map(tofrom:a[0:N])
   {
-    #pragma omp parallel for reduction(+:a)
+    #pragma omp parallel for reduction(+:a[0:N])
     for (int i = 1; i < N-1; i++) {
       a[i-1] += 1;
       a[i]   += 2;

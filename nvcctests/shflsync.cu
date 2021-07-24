@@ -8,6 +8,8 @@
 
 #define REDUX_REDUCE false
 
+// Reduction by warp using shfl.sync
+
 __inline__ __device__
 unsigned warpReduceRedux(unsigned val) {
     int laneId = threadIdx.x & 0x1f;
