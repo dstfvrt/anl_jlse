@@ -47,7 +47,7 @@ INLINE static void gpu_master_warp_reduce_v2(void *reduce_data, uint32_t size,
                                              uint32_t tid) {
   int32_t *local = *(int32_t **)reduce_data;
   for(int32_t i = 0; i < N; i++) {
-    transfer_reduce[0] = __nvvm_redux_sync_add_s32(1, size);
+    transfer_reduce[0] = __nvvm_redux_sync_add_s32(local[i], size);
     __syncthreads();
     if (tid == 0)  local[i] = transfer_reduce[0];
     __syncthreads();

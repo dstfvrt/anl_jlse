@@ -151,27 +151,7 @@ static int32_t nvptx_parallel_reduce_nowait(
      * 3. Warp 0 reduces to a single value.
      * 4. The reduced value is available in the thread that returns 1.
      */
-#if defined(__CUDA_ARCH__) && __CUDA_ARCH__ >= 800
-  uint32_t WarpsNeeded = (NumThreads + WARPSIZE - 1) / WARPSIZE;
-  uint32_t WarpId = BlockThreadId / WARPSIZE;
-
-  if ((NumThreads % WARPSIZE == 0) || (WarpId < WarpsNeeded - 1))
-    gpu_regular_warp_reduce_v2(reduce_data, GetThreadIdInBlock() % WARPSIZE);
-  else if (NumThreads > 1) // Only SPMD execution mode comes thru this case.
-    gpu_irregular_warp_reduce_v2(reduce_data,
-                                 /*LaneCount=*/NumThreads % WARPSIZE,
-                                 GetThreadIdInBlock() % WARPSIZE);
-
-  if (NumThreads > WARPSIZE) {
-    cpyFct(reduce_data, WarpsNeeded);
-
-    if (WarpId == 0)
-      gpu_irregular_warp_reduce_v2(reduce_data,
-                                   WarpsNeeded,
-                                   BlockThreadId);
-  }
-  return BlockThreadId == 0;
-#elif defined(__CUDA_ARCH__) && __CUDA_ARCH__ >= 700
+#if defined(__CUDA_ARCH__) && __CUDA_ARCH__ >= 700
   uint32_t WarpsNeeded = (NumThreads + WARPSIZE - 1) / WARPSIZE;
   uint32_t WarpId = BlockThreadId / WARPSIZE;
 
@@ -180,11 +160,9 @@ static int32_t nvptx_parallel_reduce_nowait(
   // beyond that, always a multiple of 32. For the SPMD execution mode we may
   // have any number of threads.
   if ((NumThreads % WARPSIZE == 0) || (WarpId < WarpsNeeded - 1))
-    gpu_regular_warp_reduce(reduce_data, shflFct);
+    gpu_regular_warp_reduce_v2(reduce_data);
   else if (NumThreads > 1) // Only SPMD execution mode comes thru this case.
-    gpu_irregular_warp_reduce(reduce_data, shflFct,
-                              /*LaneCount=*/NumThreads % WARPSIZE,
-                              /*LaneId=*/GetThreadIdInBlock() % WARPSIZE);
+    gpu_irregular_warp_reduce_v2(reduce_data, NumThreads % WARPSIZE);
 
   // When we have more than [warpsize] number of threads
   // a block reduction is performed here.
@@ -196,18 +174,15 @@ static int32_t nvptx_parallel_reduce_nowait(
     cpyFct(reduce_data, WarpsNeeded);
 
     if (WarpId == 0)
-      gpu_irregular_warp_reduce(reduce_data, shflFct, WarpsNeeded,
-                                BlockThreadId);
+      gpu_irregular_warp_reduce_v2(reduce_data, WarpsNeeded);
   }
   return BlockThreadId == 0;
 #else
   __kmpc_impl_lanemask_t Liveness = __kmpc_impl_activemask();
   if (Liveness == __kmpc_impl_all_lanes) // Full warp
-    gpu_regular_warp_reduce(reduce_data, shflFct);
+    gpu_regular_warp_reduce(reduce_data);
   else if (!(Liveness & (Liveness + 1))) // Partial warp but contiguous lanes
-    gpu_irregular_warp_reduce(reduce_data, shflFct,
-                              /*LaneCount=*/__kmpc_impl_popc(Liveness),
-                              /*LaneId=*/GetThreadIdInBlock() % WARPSIZE);
+    gpu_irregular_warp_reduce_v2(reduce_data, __kmpc_impl_popc(Liveness));
   else if (!isRuntimeUninitialized) // Dispersed lanes. Only threads in L2
                                     // parallel region may enter here; return
                                     // early.
@@ -225,8 +200,7 @@ static int32_t nvptx_parallel_reduce_nowait(
 
     uint32_t WarpId = BlockThreadId / WARPSIZE;
     if (WarpId == 0)
-      gpu_irregular_warp_reduce(reduce_data, shflFct, WarpsNeeded,
-                                BlockThreadId);
+      gpu_irregular_warp_reduce_v2(reduce_data, WarpsNeeded);
 
     return BlockThreadId == 0;
   } else if (isRuntimeUninitialized /* Never an L2 parallel region without the OMP runtime */) {

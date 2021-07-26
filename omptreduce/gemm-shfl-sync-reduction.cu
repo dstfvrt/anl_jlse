@@ -101,7 +101,6 @@ static int32_t nvptx_parallel_reduce_nowait(
      * 3. Warp 0 reduces to a single value.
      * 4. The reduced value is available in the thread that returns 1.
      */
-  printf("hi\n");	
 #if defined(__CUDA_ARCH__) && __CUDA_ARCH__ >= 700
   uint32_t WarpsNeeded = (NumThreads + WARPSIZE - 1) / WARPSIZE;
   uint32_t WarpId = BlockThreadId / WARPSIZE;
