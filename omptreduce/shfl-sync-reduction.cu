@@ -8,9 +8,8 @@
 //
 // --- Copy of llvm-project/openmp/libomptarget/common/src/reduction.cu --- 
 // This file contains the implementation of reduction with KMPC interface.
-// Runtime impl of @omp_shuffle_and_reduce_func
+// Runtime impl of @omp_shuffle_and_reduce_func w/o local copy of remote_elem
 // int32_t types
-//
 //
 //===----------------------------------------------------------------------===//
 #pragma omp declare target
@@ -25,50 +24,21 @@ void __kmpc_nvptx_end_reduce(int32_t global_tid) {}
 EXTERN
 void __kmpc_nvptx_end_reduce_nowait(int32_t global_tid) {}
 
-#pragma omp begin declare variant match(device={isa(sm_80)}, implementation = {extension(match_any)})
-INLINE static void gpu_regular_warp_reduce_v2(void *reduce_data, uint32_t tid) {
-  int32_t reduce[1000];
-  int32_t *local = *(int32_t **)reduce_data;
-
-  for(int32_t i = 0; i < 1000; i++) {
-    reduce[i] = __nvvm_redux_sync_add(1, 0xFF);
-  }
-}
-
-INLINE static void gpu_irregular_warp_reduce_v2(void *reduce_data,
-                                                uint32_t size, uint32_t tid) {
-  int64_t reduce[1000];
-  int32_t *local = *(int32_t **)reduce_data;
-
-  for(int32_t i = 0; i < 1000; i++) {
-    reduce[i] = __nvvm_redux_sync_add(1, size);
-  }
-  /*
-  if (tid == 0) remoteAddr = (int64_t)local;
-  remoteAddr = __kmpc_shuffle_idx_int64(size, remoteAddr, 0);
-  int32_t *remote = (int32_t *)remoteAddr;
-  for (int32_t i = 0; i < 1000; i++) {
-    remote[i] = __nvvm_redux_sync_add(local[i], size);
-  }
-  */
-}
-#pragma omp end declare variant
-
-INLINE static void gpu_regular_warp_reduce_v2(void *reduce_data, uint32_t tid) {
+INLINE static void gpu_regular_warp_reduce_v2(void *reduce_data) {
   int32_t remote[1000];
   int32_t *local = *(int32_t **)reduce_data;
   for (uint32_t mask = WARPSIZE / 2; mask > 0; mask /= 2) {
     for (int32_t i = 0; i < 1000; i++) {
       remote[i] = __kmpc_shuffle_int32(local[i], mask, WARPSIZE);
     }
+
     for (int32_t i = 0; i < 1000; i++) {
-      local[i] += remote[i];
+      local[i] += remote[i]; 
     }
   }
 }
 
-INLINE static void gpu_irregular_warp_reduce_v2(void *reduce_data,
-                                                uint32_t size, uint32_t tid) {
+INLINE static void gpu_irregular_warp_reduce_v2(void *reduce_data, uint32_t size) {
   int32_t remote[1000];
   int32_t *local = *(int32_t **)reduce_data;
 
@@ -78,10 +48,11 @@ INLINE static void gpu_irregular_warp_reduce_v2(void *reduce_data,
   mask = curr_size / 2;
   while (mask > 0) {
     for (int32_t i = 0; i < 1000; i++) {
-      remote[i] = __kmpc_shuffle_int64(local[i], mask, size);
+      remote[i] = __kmpc_shuffle_int32(local[i], mask, WARPSIZE);
     }
+
     for (int32_t i = 0; i < 1000; i++) {
-      local[i] += remote[i];
+      local[i] += remote[i]; 
     }
 
     curr_size = (curr_size + 1) / 2;
@@ -180,9 +151,11 @@ static int32_t nvptx_parallel_reduce_nowait(
 #else
   __kmpc_impl_lanemask_t Liveness = __kmpc_impl_activemask();
   if (Liveness == __kmpc_impl_all_lanes) // Full warp
-    gpu_regular_warp_reduce(reduce_data);
+    gpu_regular_warp_reduce(reduce_data, shflFct);
   else if (!(Liveness & (Liveness + 1))) // Partial warp but contiguous lanes
-    gpu_irregular_warp_reduce_v2(reduce_data, __kmpc_impl_popc(Liveness));
+    gpu_irregular_warp_reduce(reduce_data, shflFct,
+                              /*LaneCount=*/__kmpc_impl_popc(Liveness),
+                              /*LaneId=*/GetThreadIdInBlock() % WARPSIZE);
   else if (!isRuntimeUninitialized) // Dispersed lanes. Only threads in L2
                                     // parallel region may enter here; return
                                     // early.
@@ -200,7 +173,8 @@ static int32_t nvptx_parallel_reduce_nowait(
 
     uint32_t WarpId = BlockThreadId / WARPSIZE;
     if (WarpId == 0)
-      gpu_irregular_warp_reduce_v2(reduce_data, WarpsNeeded);
+      gpu_irregular_warp_reduce(reduce_data, shflFct, WarpsNeeded,
+                                BlockThreadId);
 
     return BlockThreadId == 0;
   } else if (isRuntimeUninitialized /* Never an L2 parallel region without the OMP runtime */) {

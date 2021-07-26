@@ -25,7 +25,6 @@ EXTERN
 void __kmpc_nvptx_end_reduce_nowait(int32_t global_tid) {}
 
 INLINE static void gpu_regular_warp_reduce_v2(void *reduce_data) {
-  int32_t remote[1000];
   int32_t *local = *(int32_t **)reduce_data;
   for (uint32_t mask = WARPSIZE / 2; mask > 0; mask /= 2) {
     for (int32_t i = 0; i < 1000; i++) {
@@ -35,7 +34,6 @@ INLINE static void gpu_regular_warp_reduce_v2(void *reduce_data) {
 }
 
 INLINE static void gpu_irregular_warp_reduce_v2(void *reduce_data, uint32_t size) {
-  int32_t remote[1000];
   int32_t *local = *(int32_t **)reduce_data;
 
   int16_t curr_size;
