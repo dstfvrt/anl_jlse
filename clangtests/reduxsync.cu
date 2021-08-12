@@ -7,7 +7,7 @@
 
 __inline__ __device__
 unsigned warpReduceRedux(unsigned val) {
-    return __reduce_add_sync(0xFF, val);
+    return __nvvm_redux_sync_add(val, 0xFF);
 }
 
 __global__ void reduceKernel(unsigned *in, unsigned* out, int N) {
